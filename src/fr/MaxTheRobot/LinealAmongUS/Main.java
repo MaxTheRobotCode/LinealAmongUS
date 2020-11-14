@@ -15,6 +15,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.block.Sign;
+import org.bukkit.block.Skull;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -113,10 +114,15 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 				} else if(e.getClickedBlock().getState() instanceof Button) {
 					if(getPlayerMap(e.getPlayer()) != null) {
 						Map m = getPlayerMap(e.getPlayer());
+						if(m.getTaskButtons().contains(e.getClickedBlock().getLocation())) {
+							Bukkit.broadcastMessage("Task !!!");
+						}
+					}
+				} else if(e.getClickedBlock().getState() instanceof Skull) {
+					if(getPlayerMap(e.getPlayer()) != null) {
+						Map m = getPlayerMap(e.getPlayer());
 						if(m.getEMLoc().equals(e.getClickedBlock().getLocation())) {
-							//EM code here
-						} else if(m.getTaskButtons().contains(e.getClickedBlock().getLocation())) {
-							//Task code here
+							Bukkit.broadcastMessage("EM !!!");
 						}
 					}
 				}
@@ -365,5 +371,9 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	
 	public Location locfromstring(String s) {
 		return new Location(Bukkit.getWorld(s.split(",")[0]), Integer.parseInt(s.split(",")[1]), Integer.parseInt(s.split(",")[2]), Integer.parseInt(s.split(",")[3]));
+	}
+	
+	public static List<Map> getMaps() {
+		return maps;
 	}
 }

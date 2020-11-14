@@ -1,0 +1,7 @@
+name: LinealAmongUS
+version: 1.0
+author: Max_the_robot
+main: fr.MaxTheRobot.LinealAmongUS.Main
+
+commands:
+  vote:
