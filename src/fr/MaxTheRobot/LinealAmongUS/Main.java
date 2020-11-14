@@ -33,6 +33,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.material.Button;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -66,13 +67,21 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		saveFolder = new File(getDataFolder() + "/save/");
 		saveAPI = new SaveAPI(saveFolder);
 		saveFiles = new ArrayList<>();
+		saveFilesNames = new ArrayList<String>();
 		saveFolder.mkdir();
 		if(createFiles(Arrays.asList("map"))) {
 			System.out.println("[LinealAmongUS] SaveFile creation complete !");
 		} else System.out.println("[LinealAmongUS] SaveFile already exists or creation failed !");
 		setup();
 		
-		getSaveFile("map").getContent().forEach(l -> maps.add(new Map(l.split(",")[0], Boolean.valueOf(l.split(",")[1]))));
+		List<String> filesNames = new ArrayList<String>();
+		getSaveFile("map").getContent().forEach(l -> filesNames.add(l.split(",")[0]));
+		if(createFiles(filesNames)) {
+			System.out.println("[LinealAmongUS] SaveFile creation complete !");
+		} else System.out.println("[LinealAmongUS] SaveFile already exists or creation failed !");
+		setup();
+		
+		getSaveFile("map").getContent().forEach(l -> maps.add(new Map(l.split(",")[0], Boolean.valueOf(l.split(",")[1]), getEMLoc(l.split(",")[0]), getTaskButtonsLoc(l.split(",")[0]))));
 		
 		getCommand("vote").setExecutor(this);
 		
@@ -100,6 +109,15 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 					if(m.getPlayers().size() == 4) {
 						m.setStatus(Status.STARTING);
 						new StartingTask(m).runTaskTimer(this, 0, 20);
+					}
+				} else if(e.getClickedBlock().getState() instanceof Button) {
+					if(getPlayerMap(e.getPlayer()) != null) {
+						Map m = getPlayerMap(e.getPlayer());
+						if(m.getEMLoc().equals(e.getClickedBlock().getLocation())) {
+							//EM code here
+						} else if(m.getTaskButtons().contains(e.getClickedBlock().getLocation())) {
+							//Task code here
+						}
 					}
 				}
 			}
@@ -264,7 +282,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	}
 	
 	public boolean createFiles(List<String> names) {
-		saveFilesNames = names;
+		names.forEach(n -> saveFilesNames.add(n));
 		names.forEach(s -> { if(!saveAPI.createEmptyFile(s)) b = false; });
 		return b;
 	}
@@ -332,5 +350,20 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		    }
 		});
 		return ((Entry<Player, Integer>) a[0]).getKey();
+	}
+	
+	public List<Location> getTaskButtonsLoc(String s){
+		List<Location> locs = new ArrayList<Location>();
+		for(String l : getSaveFile(s).getContent()) if(!l.startsWith("EM,")) locs.add(locfromstring(l));
+		return locs;
+	}
+	
+	public Location getEMLoc(String s) {
+		for(String l : getSaveFile(s).getContent()) if(l.startsWith("EM,")) return locfromstring(l.substring(3));
+		return null;
+	}
+	
+	public Location locfromstring(String s) {
+		return new Location(Bukkit.getWorld(s.split(",")[0]), Integer.parseInt(s.split(",")[1]), Integer.parseInt(s.split(",")[2]), Integer.parseInt(s.split(",")[3]));
 	}
 }

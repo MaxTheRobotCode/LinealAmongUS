@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
@@ -21,8 +22,10 @@ public class Map {
 	List<Player> deathPlayers;
 	List<Entity> skeletons;
 	HashMap<Player, Integer> vote;
+	List<Location> taskButtons;
+	Location EMLoc;
 	
-	public Map(String name, boolean open) {
+	public Map(String name, boolean open, Location EMLoc, List<Location> taskButtons) {
 		this.players = new HashMap<>();
 		this.name = name;
 		this.open = open;
@@ -31,6 +34,8 @@ public class Map {
 		this.deathPlayers = new ArrayList<Player>();
 		this.skeletons = new ArrayList<Entity>();
 		this.vote = new HashMap<>();
+		this.EMLoc = EMLoc;
+		this.taskButtons = taskButtons;
 	}
 	
 	public String getName() {
@@ -69,16 +74,20 @@ public class Map {
 		return votetime;
 	}
 	
+	public Location getEMLoc() {
+		return EMLoc;
+	}
+	
+	public List<Location> getTaskButtons() {
+		return taskButtons;
+	}
+	
 	public void setName(String name) {
 		this.name = name;
 	}
 	
 	public void setOpen(boolean open) {
 		this.open = open;
-	}
-	
-	public void setPlayers(HashMap<Player, Role> players) {
-		this.players = players;
 	}
 	
 	public void setStatus(Status status) {
@@ -91,5 +100,9 @@ public class Map {
 	
 	public void setVotetime(int votetime) {
 		this.votetime = votetime;
+	}
+	
+	public void setEMLoc(Location eMLoc) {
+		EMLoc = eMLoc;
 	}
 }
