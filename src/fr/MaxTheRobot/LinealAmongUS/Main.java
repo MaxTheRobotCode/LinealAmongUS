@@ -14,6 +14,8 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.SkullType;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.command.Command;
@@ -28,18 +30,22 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.material.Button;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import fr.MaxTheRobot.LinealAmongUS.Object.Map;
+import fr.MaxTheRobot.LinealAmongUS.Object.Vent;
 import fr.MaxTheRobot.LinealAmongUS.ScoreBoard.Scoreboard;
 import fr.MaxTheRobot.LinealAmongUS.Task.StartingTask;
 import fr.MaxTheRobot.LinealAmongUS.Task.vottingTask;
@@ -57,7 +63,9 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	private boolean b = true;
 	private static Main instance;
 	
-	public static ItemStack report = Item.fromMat(Material.BONE).setName("§eReport").setEnchented().setLore("§cRight clic for report a body !").toItem();
+	public static ItemStack report = Item.fromMat(Material.BONE).setName("§eReport").setEnchented().setLore("§cClic droit pour report un corps").toItem();
+	
+	public static Inventory ventInventory;
 	
 	@Override
 	public void onEnable() {
@@ -82,9 +90,24 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		} else System.out.println("[LinealAmongUS] SaveFile already exists or creation failed !");
 		setup();
 		
-		getSaveFile("map").getContent().forEach(l -> maps.add(new Map(l.split(",")[0], Boolean.valueOf(l.split(",")[1]), getEMLoc(l.split(",")[0]), getTaskButtonsLoc(l.split(",")[0]))));
+		for(String l : getSaveFile("map").getContent()) {
+			Map m = new Map(l.split(",")[0], Boolean.valueOf(l.split(",")[1]), new ArrayList<>());
+			for(String vl : getSaveFile(m.getName()).getContent()) {
+				if(vl.startsWith("V:")) {
+					String[] e = vl.substring(2).split("/");
+					Vent v = new Vent(m, e[0], locfromstring(e[1]), new ArrayList<Location>());
+					String[] ventsloc = e[3].split(":");
+					for(String ventloc : ventsloc) {
+						v.getLocation().add(locfromstring(ventloc));
+					}
+					m.getVents().add(v);
+				}
+			}
+			maps.add(m);
+		}
 		
 		getCommand("vote").setExecutor(this);
+		getCommand("admin").setExecutor(this);
 		
 		instance = this;
 		new Scoreboard(this);
@@ -97,34 +120,37 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		e.getPlayer().showPlayer(instance, e.getPlayer());;
 	}
 	
+	@SuppressWarnings("deprecation")
 	@EventHandler
 	public void onInteract(PlayerInteractEvent e) {
 		if(e.getClickedBlock() != null) {
 			if(e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
 				if(e.getClickedBlock().getState() instanceof Sign) {
 					Sign s = (Sign) e.getClickedBlock().getState();
-					Map m = getMapByName(s.getLine(1));
-					e.getPlayer().teleport(new Location(Bukkit.getWorld(s.getLine(1)), 8, 92, -10));
-					m.getPlayers().put(e.getPlayer(), setRole(m));
+					String mapName = s.getLine(1).substring(4);
+					Map m = getMapByName(mapName);
+					e.getPlayer().teleport(new Location(Bukkit.getWorld(mapName), 8, 92, -10));
+					Role r = setRole(m);
+					if(r.equals(Role.impostor)) m.setImpostor(e.getPlayer());
+					m.getPlayers().put(e.getPlayer(), r);
 					
 					if(m.getPlayers().size() == 4) {
 						m.setStatus(Status.STARTING);
 						new StartingTask(m).runTaskTimer(this, 0, 20);
 					}
-				} else if(e.getClickedBlock().getState() instanceof Button) {
-					if(getPlayerMap(e.getPlayer()) != null) {
-						Map m = getPlayerMap(e.getPlayer());
-						if(m.getTaskButtons().contains(e.getClickedBlock().getLocation())) {
-							Bukkit.broadcastMessage("Task !!!");
-						}
-					}
 				} else if(e.getClickedBlock().getState() instanceof Skull) {
-					if(getPlayerMap(e.getPlayer()) != null) {
-						Map m = getPlayerMap(e.getPlayer());
-						if(m.getEMLoc().equals(e.getClickedBlock().getLocation())) {
-							Bukkit.broadcastMessage("EM !!!");
+					Skull s = (Skull) e.getClickedBlock();
+					if(s.getSkullType().equals(SkullType.PLAYER)) {
+						if(s.getOwner().equals("PLAYER NAME HERE")) {
+							getPlayerMap(e.getPlayer()).setStatus(Status.VOTING);
+							getPlayers(getPlayerMap(e.getPlayer())).forEach(p -> { p.sendTitle("§cEmergency meating !", "", 1, 60, 1); p.sendMessage("§l§aLe chat a été activé !");});
+							new vottingTask(getPlayerMap(e.getPlayer())).runTaskTimer(this, 0, 20);
 						}
 					}
+				}
+			} else if(e.getAction().equals(Action.PHYSICAL)) {
+				if(e.getClickedBlock().getType().equals(Material.STONE_BUTTON)) {
+					//task detetection here
 				}
 			}
 		}
@@ -132,8 +158,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 			if(e.getAction().equals(Action.RIGHT_CLICK_AIR)) {
 				if(e.getPlayer().getInventory().getItemInMainHand().equals(report)) {
 					getPlayerMap(e.getPlayer()).setStatus(Status.VOTING);
-					Bukkit.broadcastMessage("set voting");
-					getPlayers(getPlayerMap(e.getPlayer())).forEach(p -> { p.sendTitle("§cBody report !", "", 1, 60, 1); p.sendMessage("§l§aChat enabled !");});
+					getPlayers(getPlayerMap(e.getPlayer())).forEach(p -> { p.sendTitle("§cUn corps a été trouvé !", "", 1, 60, 1); p.sendMessage("§l§aLe chat a été activé !");});
 					new vottingTask(getPlayerMap(e.getPlayer())).runTaskTimer(this, 0, 20);
 				}
 			}
@@ -143,14 +168,46 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	@EventHandler
 	public void onChat(AsyncPlayerChatEvent e) {
 		if(getPlayerMap(e.getPlayer()) == null) { e.setCancelled(true); return; }
-		if(getPlayerMap(e.getPlayer()).getDeathPlayers().contains(e.getPlayer())) { e.getPlayer().sendMessage("§cYou are dead !"); e.setCancelled(true); return; }
+		if(getPlayerMap(e.getPlayer()).getDeathPlayers().contains(e.getPlayer())) { e.getPlayer().sendMessage("§cVous ête mort. Vous ne pouvez pas parler"); e.setCancelled(true); return; }
 		if(!getPlayerMap(e.getPlayer()).getStatus().equals(Status.VOTING)) {
 			e.setCancelled(true);
-			e.getPlayer().sendMessage("§cChat is disable !");
+			e.getPlayer().sendMessage("§cLe chat est désactivé !");
 			return;
 		}
 		getPlayerMap(e.getPlayer()).getPlayers().keySet().forEach(p -> p.sendMessage("§7" + e.getPlayer().getName() + " > " + e.getMessage()));
 		e.setCancelled(true);
+	}
+	
+	@EventHandler
+	public void onPlayerToggleSneakEvent(PlayerToggleSneakEvent e) {
+		Player p = e.getPlayer();
+		if(p.getLocation().getBlock().getRelative(BlockFace.DOWN).getType().equals(Material.IRON_TRAPDOOR) && getPlayerMap(p).getImpostor().equals(p)) {
+			p.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 255));
+			Inventory inv = Bukkit.createInventory(null, 9, "§cVent - " + getPlayerMap(p).getVent(p.getLocation()).getName());
+			for(int i = 0; i < inv.getSize(); i++) inv.setItem(i, Item.create(Material.STAINED_GLASS_PANE, 15).setName("§r").toItem());
+			Vent v = getPlayerMap(p).getVent(p.getLocation());
+			List<Vent> vs = new ArrayList<Vent>();
+			for(Location l : v.getVents()) vs.add(getPlayerMap(p).getVent(l));
+			for(Vent vt : vs) inv.addItem(Item.create(Material.WOOD, 14).setName("§e" + vt.getName()).setEnchented().setLore("§cClic droit pour se téléporter").toItem());
+			p.openInventory(inv);
+			p.setSneaking(false);
+		}
+	}
+	
+	@EventHandler
+	public void onClic(InventoryClickEvent e) {
+		Player p = (Player) e.getWhoClicked();
+		if(e.getInventory().getName().startsWith("§cVent")) {
+			if(!e.getCurrentItem().getType().equals(Material.WOOL)) return;
+			ItemStack it = e.getCurrentItem();
+			for(Vent v : getPlayerMap(p).getVents()) {
+				if(v.getName().equals(it.getItemMeta().getDisplayName().substring(2))) {
+					p.teleport(v.getLocation().add(0, 1, 0));
+					p.removePotionEffect(PotionEffectType.INVISIBILITY);
+					p.closeInventory();
+				}
+			}
+		}
 	}
 	
 	@EventHandler
@@ -168,11 +225,13 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	
 	@EventHandler
 	public void onBlockBreak(BlockBreakEvent e) {
+		if(e.getPlayer().getGameMode().equals(GameMode.CREATIVE)) return;
 		e.setCancelled(true);
 	}
 	
 	@EventHandler
 	public void onBlockPlace(BlockPlaceEvent e) {
+		if(e.getPlayer().getGameMode().equals(GameMode.CREATIVE)) return;
 		e.setCancelled(true);
 	}
 	
@@ -184,7 +243,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 			Map m = getPlayerMap(p);
 			if(getImpostor(m).equals(p)) {
 				e.setCancelled(true);
-				kill(v);
+				kill(v, p);
 				v.getWorld().spawnParticle(Particle.REDSTONE, v.getLocation(), 150, 0, 3, 0);
 				Skeleton s = (Skeleton) v.getWorld().spawnEntity(v.getLocation(), EntityType.SKELETON);
 				s.setAI(false);
@@ -222,54 +281,86 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 		if(!(sender instanceof Player)) return true;
 		Player p = (Player) sender;
-		Map m = getPlayerMap(p);
-		if(m == null) return true;
-		if(m.getStatus().equals(Status.VOTING) && !getPlayerRole(p).equals(Role.dead)) {
-			if(args.length == 0) {
-				p.sendMessage("§cspecify a player !");
+		if(command.getName().equals("admin")) {
+			if(!p.isOp()) return true;
+			if(args.length == 0) { p.sendMessage("§cSpecify a argument !"); return true; }
+			if(args.length == 2) {
+				if(args[0].equals("sign")) {
+					Bukkit.dispatchCommand(p, 
+							"give " + p.getName() + " minecraft:sign 1 0 {BlockEntityTag:{Text1:\"{\\\"text\\\":\\\"Map :\\\",\\\"bold\\\":true}\",Text2:\"{\\\"text\\\":\\\"MAPNAME\\\",\\\"bold\\\":true,\\\"color\\\":\\\"yellow\\\"}\",Text3:\"{\\\"text\\\":\\\"\\\"}\",Text4:\"{\\\"text\\\":\\\"[clic to join]\\\",\\\"bold\\\":true,\\\"color\\\":\\\"dark_red\\\"}\"},display:{Name:\"MAPNAME sign\"}}"
+							.replace("MAPNAME", args[1]));
+				}
 			} else if(args.length == 1) {
-				Player v = Bukkit.getPlayer(args[0]);
-				if(v == null) { p.sendMessage("§cThis player is not online!"); return true; }
-				Map vm = getPlayerMap(v);
-				if(vm.equals(m)) {
-					if(m.getDeathPlayers().contains(v)) {
-						p.sendMessage("§cThis player is dead !");
-						return true;
-					}
-					if(m.getVote().containsKey(p)) {
-						p.sendMessage("§cYou have already vote !");
-						return true;
-					}
-					p.sendMessage("§aYou have vote for " + v.getName());
-					if(!m.getVote().containsKey(v)) m.getVote().put(v, 0);
-					m.getVote().replace(v, m.getVote().get(v), m.getVote().get(v) + 1);
-				} else p.sendMessage("§cThis player is not in the same game as you !");
+				if(args[0].equals("block")) {
+					p.sendMessage("Le block que vous regarder est en " + stringfromloc(p.getEyeLocation()));
+				}
 			}
-		} else p.sendMessage("§cYou can't vote now !");
+		} else if(command.getName().equals("vote")) {
+			Map m = getPlayerMap(p);
+			if(m == null) return true;
+			if(m.getStatus().equals(Status.VOTING) && !getPlayerRole(p).equals(Role.dead)) {
+				if(args.length == 0) {
+					p.sendMessage("§cSpecify a player !");
+				} else if(args.length == 1) {
+					Player v = Bukkit.getPlayer(args[0]);
+					if(v == null) { p.sendMessage("§cCe joueur n'est pas en ligne !"); return true; }
+					Map vm = getPlayerMap(v);
+					if(vm.equals(m)) {
+						if(m.getDeathPlayers().contains(v)) {
+							p.sendMessage("§cCe joueur est mort !");
+							return true;
+						}
+						if(m.getVote().containsKey(p)) {
+							p.sendMessage("§cVous avez déjà voté !");
+							return true;
+						}
+						p.sendMessage("§aVous avez voté pour " + v.getName());
+						if(!m.getVote().containsKey(v)) m.getVote().put(v, 0);
+						m.getVote().replace(v, m.getVote().get(v), m.getVote().get(v) + 1);
+					} else p.sendMessage("§cCe joueur n'est pas dans la meme partie que vous !");
+				}
+			} else p.sendMessage("§cVous ne pouvez pas voter maintenant !");
+		}
 		return true;
 	}
 	
-	public static void kill(Player p) {
+	public static void kill(Player p, Player killer) {
 		getPlayerMap(p).getDeathPlayers().add(p);
 		getPlayerMap(p).getPlayers().remove(p);
 		p.setGameMode(GameMode.CREATIVE);
+		p.sendTitle("§cVous êtes mort !", "Vous avez été tué par " + killer.getName(), 1, 1, 1);
 		p.getInventory().clear();
 		p.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 255, true));
 		getPlayerMap(p).getPlayers().replace(p, getPlayerRole(p), Role.dead);
 	}
 	
 	public static void win(Map m, Role r) {
-		Bukkit.broadcastMessage("§cWINNER : " + r.name());
+		Bukkit.broadcastMessage("§cGagnant : " + r.name());
 		m.getSkeletons().forEach(s -> ((Skeleton) s).setHealth(0));
-		m.getDeathPlayers().forEach(p -> {
-			p.teleport(new Location(Bukkit.getWorld("world"), 1.5, 6, 28.5, 180, 0));
-		});
-		m.getPlayers().keySet().forEach(p -> {
-			p.teleport(new Location(Bukkit.getWorld("world"), 1.5, 6, 28.5, 180, 0));
-		});
+		getPlayers(m).forEach(a -> a.showPlayer(instance, a));
+		for(Player p : getPlayers(m)) for(Player v : getPlayers(m)) p.showPlayer(instance, v);
 		m.getPlayers().clear();
 		m.getDeathPlayers().clear();
 		m.setStatus(Status.WAITING);
+		
+		new BukkitRunnable() {
+			
+			int i = 0;
+			@Override
+			public void run() {
+				getPlayers(m).forEach(p -> p.sendMessage("§c"));
+				if(i == 7) {
+					m.getDeathPlayers().forEach(p -> {
+						p.teleport(new Location(Bukkit.getWorld("world"), 1.5, 6, 28.5, 180, 0));
+					});
+					m.getPlayers().keySet().forEach(p -> {
+						p.teleport(new Location(Bukkit.getWorld("world"), 1.5, 6, 28.5, 180, 0));
+					});
+					this.cancel();
+				}
+				i++;
+			}
+		};
 	}
 	
 	public static Map getPlayerMap(Player p) {
@@ -329,8 +420,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	}
 	
 	public static Player getImpostor(Map m) {
-		for(Entry<Player, Role> e : m.getPlayers().entrySet()) if(e.getValue().equals(Role.impostor)) return e.getKey();
-		return null;
+		return m.getImpostor();
 	}
 	
 	public static Role getPlayerRole(Player p) {
@@ -358,19 +448,12 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		return ((Entry<Player, Integer>) a[0]).getKey();
 	}
 	
-	public List<Location> getTaskButtonsLoc(String s){
-		List<Location> locs = new ArrayList<Location>();
-		for(String l : getSaveFile(s).getContent()) if(!l.startsWith("EM,")) locs.add(locfromstring(l));
-		return locs;
-	}
-	
-	public Location getEMLoc(String s) {
-		for(String l : getSaveFile(s).getContent()) if(l.startsWith("EM,")) return locfromstring(l.substring(3));
-		return null;
-	}
-	
 	public Location locfromstring(String s) {
 		return new Location(Bukkit.getWorld(s.split(",")[0]), Integer.parseInt(s.split(",")[1]), Integer.parseInt(s.split(",")[2]), Integer.parseInt(s.split(",")[3]));
+	}
+	
+	public String stringfromloc(Location l) {
+		return l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
 	}
 	
 	public static List<Map> getMaps() {

@@ -41,23 +41,26 @@ public class PersonalScoreboard {
 	        objectiveSign.setLine(Main.maps.size() + 3, "§elineal§amc.fr");
         } else {
         	objectiveSign.clearScores();
-        	objectiveSign.setLine(0, "§1");
 	        switch (Main.getPlayerMap(player).getStatus()) {
 			case WAITING:
+				objectiveSign.clearScores();
 				objectiveSign.setLine(1, "§7Joueurs : " + Main.getPlayerMap(player).getPlayers().size() + "/10");
 				objectiveSign.setLine(2, "§7");
 				objectiveSign.setLine(3, "§elineal§amc§e.fr");
 				break;
 			case STARTING:
+				objectiveSign.clearScores();
 				objectiveSign.setLine(1, "§7Start in : " + Main.getPlayerMap(player).getStartIn());
 				objectiveSign.setLine(2, "§7");
 				objectiveSign.setLine(3, "§elineal§amc§e.fr");
 				break;
 			case PLAYING:
+				objectiveSign.clearScores();
 				objectiveSign.setLine(1, "§7Role : " + Main.getPlayerRole(player).toString());
 				objectiveSign.setLine(2, "§7");
 				objectiveSign.setLine(3, "§elineal§amc§e.fr");
 			case VOTING:
+				objectiveSign.clearScores();
 				objectiveSign.setLine(1, "§7Role : " + Main.getPlayerRole(player).toString());
 				objectiveSign.setLine(2, "§7");
 				objectiveSign.setLine(3, "§7Number of vote for you : " + Main.getPlayerVote(player));

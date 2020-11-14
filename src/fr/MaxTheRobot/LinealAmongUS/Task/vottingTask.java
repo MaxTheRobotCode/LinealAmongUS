@@ -28,12 +28,20 @@ public class vottingTask extends BukkitRunnable {
 			p.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 255, true));
 			p.sendMessage("§cVous are ejected !");
 			m.setStatus(Status.PLAYING);
-			m.getPlayers().keySet().forEach(a -> { 
+			for(Player a : Main.getPlayers(m)) {
 				a.sendMessage("§c" + p.getName() + " was ejected !");
-				if(Main.getImpostor(m).equals(p)) { a.sendMessage("§a" + p.getName() + " is the impostor !"); } else { a.sendMessage("§c" + p.getName() + " is not the impostor !"); }
-				a.sendMessage("§cChat Disable !"); });
+				if(Main.getImpostor(m).equals(p)) {
+					a.sendMessage("§a" + p.getName() + " is the impostor !");
+				} else { 
+					a.sendMessage("§c" + p.getName() + " is not the impostor !");
+				}
+				a.sendMessage("§cChat Disable !");
+			}
 			m.getDeathPlayers().add(p);
 			m.getPlayers().remove(p);
+			if(Main.getImpostor(m).equals(p)) {
+				Main.win(m, Role.crewmate);
+			}
 			if(m.getPlayers().size() == 1) {
 				Role r = Role.dead;
 				m.getPlayers().keySet().forEach(g -> Main.getPlayerRole(p));

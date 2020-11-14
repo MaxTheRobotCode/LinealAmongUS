@@ -14,6 +14,7 @@ import fr.MaxTheRobot.LinealAmongUS.Status;
 public class Map {
 
 	HashMap<Player, Role> players;
+	Player impostor;
 	String name;
 	boolean open;
 	Status status;
@@ -22,10 +23,10 @@ public class Map {
 	List<Player> deathPlayers;
 	List<Entity> skeletons;
 	HashMap<Player, Integer> vote;
-	List<Location> taskButtons;
-	Location EMLoc;
+	List<Vent> vents;
+	int taskProgression;
 	
-	public Map(String name, boolean open, Location EMLoc, List<Location> taskButtons) {
+	public Map(String name, boolean open, List<Vent> vents) {
 		this.players = new HashMap<>();
 		this.name = name;
 		this.open = open;
@@ -34,8 +35,9 @@ public class Map {
 		this.deathPlayers = new ArrayList<Player>();
 		this.skeletons = new ArrayList<Entity>();
 		this.vote = new HashMap<>();
-		this.EMLoc = EMLoc;
-		this.taskButtons = taskButtons;
+		this.impostor = null;
+		this.vents = new ArrayList<>();
+		this.taskProgression = 0;
 	}
 	
 	public String getName() {
@@ -74,12 +76,17 @@ public class Map {
 		return votetime;
 	}
 	
-	public Location getEMLoc() {
-		return EMLoc;
+	public Player getImpostor() {
+		return impostor;
 	}
 	
-	public List<Location> getTaskButtons() {
-		return taskButtons;
+	public List<Vent> getVents() {
+		return vents;
+	}
+	
+	public Vent getVent(Location l) {
+		for(Vent v : getVents()) if(v.getLocation().equals(l)) return v;
+		return null;
 	}
 	
 	public void setName(String name) {
@@ -102,7 +109,7 @@ public class Map {
 		this.votetime = votetime;
 	}
 	
-	public void setEMLoc(Location eMLoc) {
-		EMLoc = eMLoc;
+	public void setImpostor(Player impostor) {
+		this.impostor = impostor;
 	}
 }
