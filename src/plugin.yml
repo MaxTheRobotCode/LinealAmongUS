@@ -6,3 +6,4 @@ main: fr.MaxTheRobot.LinealAmongUS.Main
 commands:
   vote:
   admin:
+  leave:

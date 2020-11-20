@@ -28,7 +28,6 @@ public class PersonalScoreboard {
  
         objectiveSign.setLine(0, "§1");
         if(Main.getPlayerMap(player) == null) {
-        	objectiveSign.clearScores();
             objectiveSign.setLine(1, "§7Maps :");
 	        int i = 0;
 	        for(Map m : Main.maps) {
@@ -38,36 +37,44 @@ public class PersonalScoreboard {
 	        	i++;
 	        }
 	        objectiveSign.setLine(Main.maps.size() + 2, "§b");
-	        objectiveSign.setLine(Main.maps.size() + 3, "§elineal§amc.fr");
+	        objectiveSign.setLine(Main.maps.size() + 3, "§c");
+	        objectiveSign.setLine(Main.maps.size() + 4, "§elineal§amc§e.fr");
         } else {
-        	objectiveSign.clearScores();
 	        switch (Main.getPlayerMap(player).getStatus()) {
 			case WAITING:
-				objectiveSign.clearScores();
 				objectiveSign.setLine(1, "§7Joueurs : " + Main.getPlayerMap(player).getPlayers().size() + "/10");
 				objectiveSign.setLine(2, "§7");
-				objectiveSign.setLine(3, "§elineal§amc§e.fr");
+				objectiveSign.setLine(3, "§a");
+				objectiveSign.setLine(4, "§b");
+				objectiveSign.setLine(5, "§c");
+				objectiveSign.setLine(6, "§d");
+				objectiveSign.setLine(7, "§elineal§amc§e.fr");
 				break;
 			case STARTING:
-				objectiveSign.clearScores();
 				objectiveSign.setLine(1, "§7Start in : " + Main.getPlayerMap(player).getStartIn());
 				objectiveSign.setLine(2, "§7");
-				objectiveSign.setLine(3, "§elineal§amc§e.fr");
+				objectiveSign.setLine(3, "§a");
+				objectiveSign.setLine(4, "§b");
+				objectiveSign.setLine(5, "§c");
+				objectiveSign.setLine(6, "§d");
+				objectiveSign.setLine(7, "§elineal§amc§e.fr");
 				break;
 			case PLAYING:
-				objectiveSign.clearScores();
 				objectiveSign.setLine(1, "§7Role : " + Main.getPlayerRole(player).toString());
 				objectiveSign.setLine(2, "§7");
-				objectiveSign.setLine(3, "§elineal§amc§e.fr");
+				objectiveSign.setLine(3, "§a");
+				objectiveSign.setLine(4, "§b");
+				objectiveSign.setLine(5, "§c");
+				objectiveSign.setLine(6, "§d");
+				objectiveSign.setLine(7, "§elineal§amc§e.fr");
 			case VOTING:
-				objectiveSign.clearScores();
 				objectiveSign.setLine(1, "§7Role : " + Main.getPlayerRole(player).toString());
 				objectiveSign.setLine(2, "§7");
 				objectiveSign.setLine(3, "§7Number of vote for you : " + Main.getPlayerVote(player));
-				objectiveSign.setLine(5, "§a");
-				objectiveSign.setLine(6, "§7Vote time left : " + Main.getPlayerMap(player).getVotetime());
-				objectiveSign.setLine(7, "§b");
-				objectiveSign.setLine(8, "§elineal§amc§e.fr");
+				objectiveSign.setLine(4, "§a");
+				objectiveSign.setLine(5, "§7Vote time left : " + Main.getPlayerMap(player).getVotetime());
+				objectiveSign.setLine(6, "§b");
+				objectiveSign.setLine(7, "§elineal§amc§e.fr");
 				break;
 			default:
 				break;

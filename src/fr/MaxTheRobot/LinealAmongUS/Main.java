@@ -15,6 +15,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.SkullType;
+import org.bukkit.World;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
@@ -31,6 +32,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -39,6 +41,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.material.Button;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -58,12 +61,13 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	public static List<Map> maps = new ArrayList<Map>();
 	private File saveFolder;
 	public SaveAPI saveAPI;
-	private List<SaveFile> saveFiles;
+	private static List<SaveFile> saveFiles;
 	private List<String> saveFilesNames;
 	private boolean b = true;
 	private static Main instance;
 	
 	public static ItemStack report = Item.fromMat(Material.BONE).setName("§eReport").setEnchented().setLore("§cClic droit pour report un corps").toItem();
+	public static ItemStack sabotage = Item.fromMat(Material.REDSTONE_COMPARATOR).setName("§cSabotage").setLore("§cClic droit pour saboter !").toItem();
 	
 	public static Inventory ventInventory;
 	
@@ -90,21 +94,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		} else System.out.println("[LinealAmongUS] SaveFile already exists or creation failed !");
 		setup();
 		
-		for(String l : getSaveFile("map").getContent()) {
-			Map m = new Map(l.split(",")[0], Boolean.valueOf(l.split(",")[1]), new ArrayList<>());
-			for(String vl : getSaveFile(m.getName()).getContent()) {
-				if(vl.startsWith("V:")) {
-					String[] e = vl.substring(2).split("/");
-					Vent v = new Vent(m, e[0], locfromstring(e[1]), new ArrayList<Location>());
-					String[] ventsloc = e[3].split(":");
-					for(String ventloc : ventsloc) {
-						v.getLocation().add(locfromstring(ventloc));
-					}
-					m.getVents().add(v);
-				}
-			}
-			maps.add(m);
-		}
+		maps = Config.getMap(getSaveFile("map"));
 		
 		getCommand("vote").setExecutor(this);
 		getCommand("admin").setExecutor(this);
@@ -115,9 +105,9 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	
 	@EventHandler
 	public void onJoin(PlayerJoinEvent e) {
-		e.getPlayer().teleport(new Location(Bukkit.getWorld("world"), 1.5, 6, 28.5, 180, 0));
+		e.getPlayer().teleport(new Location(Main.getWorld("world"), 1.5, 6, 28.5, 180, 0));
 		e.getPlayer().getInventory().clear();
-		e.getPlayer().showPlayer(instance, e.getPlayer());;
+		e.getPlayer().showPlayer(this, e.getPlayer());;
 	}
 	
 	@SuppressWarnings("deprecation")
@@ -129,27 +119,32 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 					Sign s = (Sign) e.getClickedBlock().getState();
 					String mapName = s.getLine(1).substring(4);
 					Map m = getMapByName(mapName);
-					e.getPlayer().teleport(new Location(Bukkit.getWorld(mapName), 8, 92, -10));
+					e.getPlayer().sendMessage(m.getSpawn().toString());
+					try {
+						e.getPlayer().teleport(m.getSpawn());
+					} catch (Exception e2) {
+						Location l = m.getSpawn();
+						l.setWorld(getWorld(mapName));
+						e.getPlayer().teleport(l);
+					}
 					Role r = setRole(m);
 					if(r.equals(Role.impostor)) m.setImpostor(e.getPlayer());
 					m.getPlayers().put(e.getPlayer(), r);
 					
-					if(m.getPlayers().size() == 4) {
+					if(m.getPlayers().size() == 2) {
 						m.setStatus(Status.STARTING);
 						new StartingTask(m).runTaskTimer(this, 0, 20);
 					}
 				} else if(e.getClickedBlock().getState() instanceof Skull) {
 					Skull s = (Skull) e.getClickedBlock();
 					if(s.getSkullType().equals(SkullType.PLAYER)) {
-						if(s.getOwner().equals("PLAYER NAME HERE")) {
+						if(s.getOwner().equals("Push_red_button")) {
 							getPlayerMap(e.getPlayer()).setStatus(Status.VOTING);
 							getPlayers(getPlayerMap(e.getPlayer())).forEach(p -> { p.sendTitle("§cEmergency meating !", "", 1, 60, 1); p.sendMessage("§l§aLe chat a été activé !");});
 							new vottingTask(getPlayerMap(e.getPlayer())).runTaskTimer(this, 0, 20);
 						}
 					}
-				}
-			} else if(e.getAction().equals(Action.PHYSICAL)) {
-				if(e.getClickedBlock().getType().equals(Material.STONE_BUTTON)) {
+				} else if(e.getClickedBlock().getState() instanceof Button) {
 					//task detetection here
 				}
 			}
@@ -160,8 +155,10 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 					getPlayerMap(e.getPlayer()).setStatus(Status.VOTING);
 					getPlayers(getPlayerMap(e.getPlayer())).forEach(p -> { p.sendTitle("§cUn corps a été trouvé !", "", 1, 60, 1); p.sendMessage("§l§aLe chat a été activé !");});
 					new vottingTask(getPlayerMap(e.getPlayer())).runTaskTimer(this, 0, 20);
+				} else if(e.getPlayer().getInventory().getItemInMainHand().equals(sabotage)) {
+					e.getPlayer().sendMessage("§cSoon....");
 				}
-			}
+			} 
 		}
 	}
 	
@@ -174,7 +171,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 			e.getPlayer().sendMessage("§cLe chat est désactivé !");
 			return;
 		}
-		getPlayerMap(e.getPlayer()).getPlayers().keySet().forEach(p -> p.sendMessage("§7" + e.getPlayer().getName() + " > " + e.getMessage()));
+		getPlayerMap(e.getPlayer()).getPlayers().keySet().forEach(p -> p.sendMessage("§7" + e.getPlayer().getDisplayName() + " > " + e.getMessage()));
 		e.setCancelled(true);
 	}
 	
@@ -183,26 +180,32 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		Player p = e.getPlayer();
 		if(p.getLocation().getBlock().getRelative(BlockFace.DOWN).getType().equals(Material.IRON_TRAPDOOR) && getPlayerMap(p).getImpostor().equals(p)) {
 			p.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 255));
-			Inventory inv = Bukkit.createInventory(null, 9, "§cVent - " + getPlayerMap(p).getVent(p.getLocation()).getName());
-			for(int i = 0; i < inv.getSize(); i++) inv.setItem(i, Item.create(Material.STAINED_GLASS_PANE, 15).setName("§r").toItem());
-			Vent v = getPlayerMap(p).getVent(p.getLocation());
-			List<Vent> vs = new ArrayList<Vent>();
-			for(Location l : v.getVents()) vs.add(getPlayerMap(p).getVent(l));
-			for(Vent vt : vs) inv.addItem(Item.create(Material.WOOD, 14).setName("§e" + vt.getName()).setEnchented().setLore("§cClic droit pour se téléporter").toItem());
-			p.openInventory(inv);
-			p.setSneaking(false);
+			for(Vent v : getPlayerMap(p).getVents()) {
+				if(v.getLocation().getWorld() == null) {
+					v.getLocation().setWorld(getWorld(getPlayerMap(p).getName()));
+				}
+				if(isLocSimilary(p.getLocation(), v.getLocation())) {
+					Inventory inv = Bukkit.createInventory(null, 9, "§cVent - " + v.getName());
+					for(int i = 0; i < inv.getSize(); i++) inv.setItem(i, Item.create(Material.STAINED_GLASS_PANE, 15).setName("§r").toItem());
+					for(String s : v.getVents()) inv.addItem(Item.create(Material.WOOD, 14).setName("§e" + s).setEnchented().setLore("§cClic pour se téléporter").toItem());
+					p.openInventory(inv);
+					p.setSneaking(false);
+				}
+			}
 		}
 	}
 	
 	@EventHandler
 	public void onClic(InventoryClickEvent e) {
 		Player p = (Player) e.getWhoClicked();
-		if(e.getInventory().getName().startsWith("§cVent")) {
+		if(e.getInventory().getName().startsWith("§cVent - ")) {
 			if(!e.getCurrentItem().getType().equals(Material.WOOL)) return;
 			ItemStack it = e.getCurrentItem();
-			for(Vent v : getPlayerMap(p).getVents()) {
-				if(v.getName().equals(it.getItemMeta().getDisplayName().substring(2))) {
-					p.teleport(v.getLocation().add(0, 1, 0));
+			for(String v : getPlayerMap(p).getVent(e.getInventory().getName().substring(9)).getVents()) {
+				if(v.equals(it.getItemMeta().getDisplayName().substring(2))) {
+					Location loc = getPlayerMap(p).getVent(v).getLocation().add(0, 1, 0);
+					loc.setWorld(getWorld(getPlayerMap(p).getName()));
+					p.teleport(loc);
 					p.removePotionEffect(PotionEffectType.INVISIBILITY);
 					p.closeInventory();
 				}
@@ -211,9 +214,16 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	}
 	
 	@EventHandler
+	public void onInventoryClose(InventoryCloseEvent e) {
+		if(e.getInventory().getName().startsWith("§cVent - ")) {
+			e.getPlayer().removePotionEffect(PotionEffectType.INVISIBILITY);
+		}
+	}
+	
+	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
 		try {
-			if(e.getTo().getWorld().equals(Bukkit.getWorld("world"))) {
+			if(e.getTo().getWorld().equals(Main.getWorld("world"))) {
 				getMapByName(e.getFrom().getWorld().getName()).getPlayers().remove(e.getPlayer());
 				e.getPlayer().getInventory().clear();
 				List<PotionEffectType> gs = new ArrayList<PotionEffectType>();
@@ -289,6 +299,8 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 					Bukkit.dispatchCommand(p, 
 							"give " + p.getName() + " minecraft:sign 1 0 {BlockEntityTag:{Text1:\"{\\\"text\\\":\\\"Map :\\\",\\\"bold\\\":true}\",Text2:\"{\\\"text\\\":\\\"MAPNAME\\\",\\\"bold\\\":true,\\\"color\\\":\\\"yellow\\\"}\",Text3:\"{\\\"text\\\":\\\"\\\"}\",Text4:\"{\\\"text\\\":\\\"[clic to join]\\\",\\\"bold\\\":true,\\\"color\\\":\\\"dark_red\\\"}\"},display:{Name:\"MAPNAME sign\"}}"
 							.replace("MAPNAME", args[1]));
+				} else if(args[0].equals("tp")) {
+					p.teleport(getMapByName(args[1]).getSpawn());
 				}
 			} else if(args.length == 1) {
 				if(args[0].equals("block")) {
@@ -310,7 +322,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 							p.sendMessage("§cCe joueur est mort !");
 							return true;
 						}
-						if(m.getVote().containsKey(p)) {
+						if(m.getVote().containsKey(v)) {
 							p.sendMessage("§cVous avez déjà voté !");
 							return true;
 						}
@@ -320,6 +332,21 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 					} else p.sendMessage("§cCe joueur n'est pas dans la meme partie que vous !");
 				}
 			} else p.sendMessage("§cVous ne pouvez pas voter maintenant !");
+		} else if(command.getName().equals("leave")) {
+			if(getPlayerMap(p) == null) {
+				p.sendMessage("§cVous n'etes pas dans une partie !");
+				return true;
+			}
+			p.getInventory().clear();
+			List<PotionEffectType> gs = new ArrayList<PotionEffectType>();
+			for(PotionEffect g : p.getActivePotionEffects()) gs.add(g.getType());
+			for(PotionEffectType g : gs) p.removePotionEffect(g);
+			if(getImpostor(getPlayerMap(p)).equals(p)) {
+				win(getPlayerMap(p), Role.crewmate);
+			} else {
+				getPlayerMap(p).getPlayers().remove(p);
+				getPlayers(getPlayerMap(p)).forEach(a -> a.sendMessage("§a" + p.getName() + " a quitté la partie !"));
+			}
 		}
 		return true;
 	}
@@ -345,20 +372,20 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		
 		new BukkitRunnable() {
 			
-			int i = 0;
+			int i = 7;
 			@Override
 			public void run() {
-				getPlayers(m).forEach(p -> p.sendMessage("§c"));
-				if(i == 7) {
+				if(i == 0) {
 					m.getDeathPlayers().forEach(p -> {
-						p.teleport(new Location(Bukkit.getWorld("world"), 1.5, 6, 28.5, 180, 0));
+						p.teleport(new Location(Main.getWorld("world"), 1.5, 6, 28.5, 180, 0));
 					});
 					m.getPlayers().keySet().forEach(p -> {
-						p.teleport(new Location(Bukkit.getWorld("world"), 1.5, 6, 28.5, 180, 0));
+						p.teleport(new Location(Main.getWorld("world"), 1.5, 6, 28.5, 180, 0));
 					});
 					this.cancel();
 				}
-				i++;
+				getPlayers(m).forEach(p -> p.sendMessage("§cTéléportation dans " + i));
+				i--;
 			}
 		};
 	}
@@ -394,7 +421,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		return true;
 	}
 	
-	public SaveFile getSaveFile(String name) {
+	public static SaveFile getSaveFile(String name) {
 		for(SaveFile f : saveFiles) {
 			if(f.getName().equals(name)) return f;
 		}
@@ -411,7 +438,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		for(Entry<Player, Role> entry : m.getPlayers().entrySet()) if(entry.getValue().equals(Role.impostor)) r = Role.crewmate;
 		int innocent = 0;
 		for(Entry<Player, Role> entry : m.getPlayers().entrySet()) if(entry.getValue().equals(Role.crewmate)) innocent++;
-		if(m.getPlayers().size() == 3 && innocent == 3) r = Role.impostor;
+		if(m.getPlayers().size() == 1 && innocent == 1) r = Role.impostor;
 		return r;
 	}
 	
@@ -424,7 +451,7 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 	}
 	
 	public static Role getPlayerRole(Player p) {
-		for(Entry<Player, Role> e : getPlayerMap(p).getPlayers().entrySet()) if(e.getKey().equals(p)) return e.getValue();
+		for(Entry<Player, Role> e : getPlayerMap(p).getPlayers().entrySet()) if(e.getKey().equals(p)) { return e.getValue(); };
 		return null;
 	}
 	
@@ -448,12 +475,25 @@ public class Main extends JavaPlugin implements Listener, CommandExecutor {
 		return ((Entry<Player, Integer>) a[0]).getKey();
 	}
 	
-	public Location locfromstring(String s) {
-		return new Location(Bukkit.getWorld(s.split(",")[0]), Integer.parseInt(s.split(",")[1]), Integer.parseInt(s.split(",")[2]), Integer.parseInt(s.split(",")[3]));
+	public static Location locfromstring(String s, String w) {
+		return new Location(Main.getWorld(w), Integer.parseInt(s.split(",")[0]), Integer.parseInt(s.split(",")[1]), Integer.parseInt(s.split(",")[2]));
 	}
 	
 	public String stringfromloc(Location l) {
 		return l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
+	}
+	
+	public boolean isLocSimilary(Location loc1, Location loc2) {
+		return loc1.getBlock().equals(loc2.getBlock());
+	}
+	
+	public static World getWorld(String name) {
+		for(World w : Bukkit.getWorlds()) {
+			if(w.getName().equals(name)) {
+				return w;
+			}
+		}
+		return null;
 	}
 	
 	public static List<Map> getMaps() {

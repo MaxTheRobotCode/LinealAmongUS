@@ -13,6 +13,7 @@ import fr.MaxTheRobot.LinealAmongUS.Status;
 
 public class Map {
 
+	Location spawn;
 	HashMap<Player, Role> players;
 	Player impostor;
 	String name;
@@ -24,9 +25,9 @@ public class Map {
 	List<Entity> skeletons;
 	HashMap<Player, Integer> vote;
 	List<Vent> vents;
-	int taskProgression;
+	List<Location> doors;
 	
-	public Map(String name, boolean open, List<Vent> vents) {
+	public Map(Location spawn, String name, boolean open, List<Vent> vents) {
 		this.players = new HashMap<>();
 		this.name = name;
 		this.open = open;
@@ -37,7 +38,12 @@ public class Map {
 		this.vote = new HashMap<>();
 		this.impostor = null;
 		this.vents = new ArrayList<>();
-		this.taskProgression = 0;
+		this.spawn = spawn;
+		this.doors = new ArrayList<>();
+	}
+	
+	public Location getSpawn() {
+		return spawn;
 	}
 	
 	public String getName() {
@@ -87,6 +93,19 @@ public class Map {
 	public Vent getVent(Location l) {
 		for(Vent v : getVents()) if(v.getLocation().equals(l)) return v;
 		return null;
+	}
+	
+	public Vent getVent(String n) {
+		for(Vent v : getVents()) if(v.getName().equals(n)) return v;
+		return null;
+	}
+	
+	public List<Location> getDoors() {
+		return doors;
+	}
+	
+	public void setSpawn(Location spawn) {
+		this.spawn = spawn;
 	}
 	
 	public void setName(String name) {

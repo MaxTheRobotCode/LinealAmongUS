@@ -9,13 +9,13 @@ public class Vent {
 	Map map;
 	String name;
 	Location location;
-	List<Location> Vents;
+	List<String> Vents;
 	
-	public Vent(Map map, String name, Location location, List<Location> vents) {
+	public Vent(Map map, String name, Location location, List<String> vents) {
 		this.map = map;
 		this.name = name;
 		this.location = location;
-		Vents = vents;
+		this.Vents = vents;
 	}
 
 	public Map getMap() {
@@ -26,7 +26,7 @@ public class Vent {
 		return location;
 	}
 	
-	public List<Location> getVents() {
+	public List<String> getVents() {
 		return Vents;
 	}
 	
